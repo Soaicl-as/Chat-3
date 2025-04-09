@@ -1,76 +1,57 @@
-import os
-from flask import Flask, render_template, request, session, redirect, url_for, flash
+from flask import Flask, request, render_template_string
 from instagrapi import Client
-from instagrapi.exceptions import TwoFactorRequired
+from instagrapi.exceptions import ChallengeRequired
 import time
-import threading
-from utils import send_mass_dm
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
+app.secret_key = "your-secret-key"  # Replace with a strong secret in production
 
-# Instagram client setup
 client = Client()
-
-# Store session to prevent multiple logins
-session_data = {}
 
 @app.route("/", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
-        
+
         try:
+            # First login attempt
             client.login(username, password)
-            session_data['user'] = username
-            session_data['client'] = client
+            return "✅ Logged in successfully!"
 
-            # If login is successful, proceed to dashboard
-            return redirect(url_for("dashboard"))
-        except TwoFactorRequired as e:
-            # Store the two-factor identifier so we can complete it later
-            session["two_factor_identifier"] = e.two_factor_identifier
-            return redirect(url_for("verify_2fa"))
+        except ChallengeRequired:
+            # Instagram flagged the login as suspicious
+            max_retries = 10
+            for attempt in range(max_retries):
+                print(f"⚠️ Challenge required. Waiting for you to confirm login in Instagram app... (Retry {attempt + 1}/{max_retries})")
+                time.sleep(10)
+
+                try:
+                    client.login(username, password)
+                    return "✅ Logged in after Instagram confirmation!"
+                except ChallengeRequired:
+                    continue  # Try again
+                except Exception as inner_error:
+                    return f"❌ Login failed during retry: {str(inner_error)}", 500
+
+            return "❌ Login blocked. You didn’t confirm the login in time. Please try again.", 403
+
         except Exception as e:
-            flash(f"Login failed: {str(e)}")
-            return redirect(url_for("login"))
-    
-    return render_template("login.html")
+            return f"❌ Login failed: {str(e)}", 500
 
-@app.route("/verify_2fa", methods=["GET", "POST"])
-def verify_2fa():
-    if request.method == "POST":
-        verification_code = request.form.get("verification_code")
-        two_factor_identifier = session.get("two_factor_identifier")
-
-        if two_factor_identifier:
-            try:
-                # Try completing the 2FA with the verification code
-                client.complete_two_factor_login(two_factor_identifier, verification_code)
-                session_data['client'] = client  # Store the successful client
-
-                return redirect(url_for("dashboard"))
-            except Exception as e:
-                flash(f"Error completing 2FA: {str(e)}")
-    
-    return render_template("verify_2fa.html")
-
-@app.route("/dashboard", methods=["GET", "POST"])
-def dashboard():
-    if request.method == "POST":
-        target_account = request.form.get("target_account")
-        message = request.form.get("message")
-        time_delay = int(request.form.get("time_delay"))
-        is_followers = request.form.get("target_type") == "followers"
-
-        # Start the mass DM process in a separate thread
-        threading.Thread(target=send_mass_dm, args=(target_account, message, time_delay, is_followers)).start()
-        
-        flash(f"Messages are being sent to {target_account}'s {'followers' if is_followers else 'following'}!")
-        return redirect(url_for("dashboard"))
-    
-    return render_template("dashboard.html")
-
-if __name__ == "__main__":
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    return render_template_string('''
+        <!doctype html>
+        <html>
+            <head><title>Instagram Login</title></head>
+            <body>
+                <h2>Instagram Login</h2>
+                <form method="post">
+                    <label>Username:</label><br>
+                    <input type="text" name="username" required><br><br>
+                    <label>Password:</label><br>
+                    <input type="password" name="password" required><br><br>
+                    <input type="submit" value="Login">
+                </form>
+            </body>
+        </html>
+    ''')
