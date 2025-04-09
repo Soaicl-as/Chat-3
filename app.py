@@ -20,17 +20,21 @@ def login():
             return "✅ Logged in successfully!"
 
         except ChallengeRequired:
-            # Instagram flagged the login as suspicious
+            # Instagram flagged the login as suspicious (ChallengeRequired)
+            print("⚠️ Challenge required. Waiting for you to confirm login in the Instagram app...")
+
+            # Retry until you clear the challenge on Instagram
             max_retries = 10
             for attempt in range(max_retries):
-                print(f"⚠️ Challenge required. Waiting for you to confirm login in Instagram app... (Retry {attempt + 1}/{max_retries})")
+                print(f"Attempt {attempt + 1}/{max_retries}: Waiting for Instagram confirmation...")
                 time.sleep(10)
 
                 try:
+                    # Retry login after you confirm in Instagram
                     client.login(username, password)
                     return "✅ Logged in after Instagram confirmation!"
                 except ChallengeRequired:
-                    continue  # Try again
+                    continue  # Try again if challenge still required
                 except Exception as inner_error:
                     return f"❌ Login failed during retry: {str(inner_error)}", 500
 
@@ -55,3 +59,6 @@ def login():
             </body>
         </html>
     ''')
+
+if __name__ == "__main__":
+    app.run(debug=True)
