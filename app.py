@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template_string, session, redirect, url_for
+from flask import Flask, request, render_template_string, session
 from instagrapi import Client
 from instagrapi.exceptions import ChallengeRequired, TwoFactorRequired
 import time
@@ -38,14 +38,13 @@ def login():
             """
 
         except TwoFactorRequired:
-            # Instagram is asking for 2FA (e.g., via SMS)
-            print("⚠️ Two-factor authentication is required.")
+            # If Instagram is asking for 2FA, skip it because it's not needed for your case
+            print("⚠️ Two-factor authentication is required, but this doesn't apply to your case.")
             return """
                 <h2>Instagram Login</h2>
-                <p>Instagram requires 2FA. Please complete the 2FA challenge.</p>
+                <p>Instagram requires 2FA. But in this case, you only need to confirm the login attempt manually. Please approve it in the Instagram app.</p>
                 <form method="post">
-                    <input type="text" name="verification_code" placeholder="Enter your 2FA code" required><br><br>
-                    <input type="submit" value="Submit">
+                    <input type="submit" value="Retry Login" />
                 </form>
             """
 
@@ -93,21 +92,6 @@ def retry_login():
             <input type="submit" value="Retry Login" />
         </form>
     """
-
-@app.route("/2fa", methods=["POST"])
-def two_factor():
-    # Check if we are in a 2FA state
-    username = request.form.get("username")
-    password = request.form.get("password")
-    verification_code = request.form.get("verification_code")
-
-    try:
-        # Log in with 2FA code
-        client.login(username, password, verification_code=verification_code)
-        return "✅ Logged in successfully with 2FA!"
-
-    except Exception as e:
-        return f"❌ 2FA failed: {str(e)}", 500
 
 if __name__ == "__main__":
     app.run(debug=True)
