@@ -15,7 +15,8 @@ def login():
         password = request.form.get("password")
 
         try:
-            # Attempt to login
+            # Attempt to log in first
+            print("🔑 Attempting to log in...")
             client.login(username, password)
             return "✅ Logged in successfully!"
 
@@ -37,12 +38,12 @@ def login():
                 </form>
             """
 
-        except TwoFactorRequired:
-            # If Instagram is asking for 2FA, skip it because it's not needed for your case
-            print("⚠️ Two-factor authentication is required, but this doesn't apply to your case.")
+        except TwoFactorRequired as e:
+            # If Instagram asks for 2FA, we don't need the code because we are handling a challenge
+            print("⚠️ Instagram is asking for 2FA, but you should approve the login first.")
             return """
                 <h2>Instagram Login</h2>
-                <p>Instagram requires 2FA. But in this case, you only need to confirm the login attempt manually. Please approve it in the Instagram app.</p>
+                <p>Instagram requires 2FA, but in this case, you only need to confirm the login attempt manually. Please approve it in the Instagram app.</p>
                 <form method="post">
                     <input type="submit" value="Retry Login" />
                 </form>
